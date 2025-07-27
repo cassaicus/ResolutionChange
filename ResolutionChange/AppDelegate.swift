@@ -1,7 +1,6 @@
 import Cocoa
 import ServiceManagement
 
-
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusBarController: StatusBarController?
 
@@ -12,6 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         // クリーンアップ処理
     }
+    
     @objc func toggleAutorun(_ sender: NSMenuItem) {
         if sender.state == .on {
             // OFF にする

@@ -227,36 +227,60 @@ final class StatusBarController: NSObject {
         
         
         
-        // ⭐️ Favorite サブメニュー（お気に入り解像度一覧）を作成開始
+        
         let favoriteItem = NSMenuItem(title: "Favorite", action: nil, keyEquivalent: "")
-        // 「Favorite >」を親メニューアイテムとして作成し、そのサブメニューを作る
         let favoriteSubMenu = NSMenu()
+        
+        // ✅ 「[Display 1]」というタイトル行を追加（選択不可・装飾なし）
+        let headerItem = NSMenuItem(title: "[ Display 1 ]", action: nil, keyEquivalent: "")
+        headerItem.isEnabled = false // 選択不可にする
+        favoriteSubMenu.addItem(headerItem)
 
-        // メインディスプレイのすべてのモードを順に処理
         for mode in display.modes {
             let resStr = "\(mode.width)x\(mode.height)"
-            var displayTitle = resStr
+            let item = NSMenuItem(title: resStr, action: #selector(toggleFavorite(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = resStr
 
-            // すでにお気に入りなら ⭐️ を付ける
             if favoriteStrings.contains(resStr) {
-                displayTitle = "⭐︎ " + displayTitle
-            }else {
-                displayTitle = "　\(resStr)"  // 非お気に入りは全角空白などで揃える
+                item.state = .on
             }
 
-
-
-            let item = NSMenuItem(
-                title: displayTitle,
-                action: #selector(toggleFavorite(_:)),  // ✅ アクションを切り替え専用に
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = resStr  // ✅ 解像度文字列だけあれば充分
-
-            item.isEnabled = true  // お気に入り操作は常に有効
             favoriteSubMenu.addItem(item)
         }
+//
+//        favoriteItem.submenu = favoriteSubMenu
+//        menu.addItem(favoriteItem)  // ✅ ← ここだけで1回だけ追加
+
+        
+//        // ⭐️ Favorite サブメニュー（お気に入り解像度一覧）を作成開始
+//        let favoriteItem = NSMenuItem(title: "Favorite", action: nil, keyEquivalent: "")
+//        // 「Favorite >」を親メニューアイテムとして作成し、そのサブメニューを作る
+//        let favoriteSubMenu = NSMenu()
+//
+//        // メインディスプレイのすべてのモードを順に処理
+//        for mode in display.modes {
+//            let resStr = "\(mode.width)x\(mode.height)"
+//            var displayTitle = resStr
+//
+//            // すでにお気に入りなら ⭐️ を付ける
+//            if favoriteStrings.contains(resStr) {
+//                displayTitle = "⭐︎ " + displayTitle
+//            }else {
+//                displayTitle = "　\(resStr)"  // 非お気に入りは全角空白などで揃える
+//            }
+//
+//            let item = NSMenuItem(
+//                title: displayTitle,
+//                action: #selector(toggleFavorite(_:)),  // ✅ アクションを切り替え専用に
+//                keyEquivalent: ""
+//            )
+//            item.target = self
+//            item.representedObject = resStr  // ✅ 解像度文字列だけあれば充分
+//
+//            item.isEnabled = true  // お気に入り操作は常に有効
+//            favoriteSubMenu.addItem(item)
+//        }
 
 
         // 「Favorite >」メニューにサブメニューを設定

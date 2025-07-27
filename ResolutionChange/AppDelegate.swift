@@ -23,7 +23,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 try SMAppService.mainApp.register()
                 sender.state = .on
             } catch {
-                print("❌ Failed to register login item: \(error)")
+                //print("❌ Failed to register login item: \(error)")
             }
         }
     }

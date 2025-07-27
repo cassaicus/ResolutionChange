@@ -13,14 +13,14 @@ class ResolutionManager {
         var displayCount: UInt32 = 0
         var result = CGGetOnlineDisplayList(0, nil, &displayCount)
         if result != .success {
-            print("❌ Failed to get display count")
+            //print("❌ Failed to get display count")
             return []
         }
 
         var activeDisplays = [CGDirectDisplayID](repeating: 0, count: Int(displayCount))
         result = CGGetOnlineDisplayList(displayCount, &activeDisplays, &displayCount)
         if result != .success {
-            print("❌ Failed to get display list")
+            //print("❌ Failed to get display list")
             return []
         }
 
@@ -72,19 +72,19 @@ class ResolutionManager {
         var configRef: CGDisplayConfigRef?
         let beginResult = CGBeginDisplayConfiguration(&configRef)
         if beginResult != .success {
-            print("❌ Failed to begin display config: \(beginResult.rawValue)")
+            //print("❌ Failed to begin display config: \(beginResult.rawValue)")
             return
         }
 
         let result = CGConfigureDisplayWithDisplayMode(configRef, displayID, mode, nil)
         if result != .success {
-            print("❌ Failed to set resolution \(mode.width)x\(mode.height): \(result.rawValue)")
+            //print("❌ Failed to set resolution \(mode.width)x\(mode.height): \(result.rawValue)")
             CGCancelDisplayConfiguration(configRef)
             return
         }
 
         CGCompleteDisplayConfiguration(configRef, .permanently)
-        print("✅ Resolution set to \(mode.width)x\(mode.height) for display \(displayID)")
+        //print("✅ Resolution set to \(mode.width)x\(mode.height) for display \(displayID)")
     }
     func canSetResolution(displayID: CGDirectDisplayID, mode: CGDisplayMode) -> Bool {
         // 実際に CGDisplaySetDisplayMode で試してみるのは重いので、

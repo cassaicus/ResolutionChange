@@ -1,7 +1,6 @@
 import Cocoa
 import ServiceManagement
 
-
 final class StatusBarController: NSObject {
     private var statusItem: NSStatusItem!
     private let resolutionManager = ResolutionManager()
@@ -143,11 +142,11 @@ final class StatusBarController: NSObject {
         if favorites.contains(resStr) {
             // すでに登録されている → 削除
             favorites.removeAll { $0 == resStr }
-            print("⭐️ Removed favorite: \(resStr)")
+            //print("⭐️ Removed favorite: \(resStr)")
         } else {
             // 登録されていない → 追加
             favorites.append(resStr)
-            print("⭐️ Added favorite: \(resStr)")
+            //print("⭐️ Added favorite: \(resStr)")
         }
 
         UserDefaults.standard.set(favorites, forKey: "FavoriteResolutions")
@@ -174,10 +173,10 @@ final class StatusBarController: NSObject {
     
     @objc private func changeResolution(_ sender: NSMenuItem) {
         guard let (displayID, mode) = sender.representedObject as? (CGDirectDisplayID, CGDisplayMode) else {
-            print("❌ representedObject not set correctly")
+            //print("representedObject not set correctly")
             return
         }
-        print("🔁 Try set \(mode.width)x\(mode.height) for \(displayID)")
+        //print("Try set \(mode.width)x\(mode.height) for \(displayID)")
         resolutionManager.setResolution(displayID: displayID, mode: mode)
         refreshMenu()
     }

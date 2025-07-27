@@ -78,14 +78,10 @@ final class StatusBarController: NSObject {
             action: #selector(AppDelegate.toggleAutorun(_:)),
             keyEquivalent: ""
         )
-        autorunItem.target = self
+        autorunItem.target = NSApp.delegate
+        //autorunItem.target = self
         autorunItem.state = isLoginItemEnabled() ? .on : .off
         menu.addItem(autorunItem)
-        
-        
-        
-        
-        
         
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q").then {
             $0.target = self

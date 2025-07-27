@@ -67,85 +67,6 @@ class ResolutionManager {
 
         return displays
     }
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-//    func getDisplays() -> [Display] {
-//        var displayCount: UInt32 = 0
-//        var result = CGGetOnlineDisplayList(0, nil, &displayCount)
-//        if result != .success {
-//            print("❌ Failed to get display count")
-//            return []
-//        }
-//
-//        var activeDisplays = [CGDirectDisplayID](repeating: 0, count: Int(displayCount))
-//        result = CGGetOnlineDisplayList(displayCount, &activeDisplays, &displayCount)
-//        if result != .success {
-//            print("❌ Failed to get display list")
-//            return []
-//        }
-//
-//        print("🖥️ Found \(displayCount) displays")
-//
-//        var displays: [Display] = []
-//
-//        for id in activeDisplays {
-//            let options: CFDictionary = [
-//                kCGDisplayShowDuplicateLowResolutionModes: true
-//            ] as CFDictionary
-//
-//            guard let allModesCF = CGDisplayCopyAllDisplayModes(id, options) else {
-//                print("❌ Cannot get display modes for display \(id)")
-//                continue
-//            }
-//
-//            let allModes = allModesCF as! [CGDisplayMode]
-//            var validModes: [CGDisplayMode] = []
-//
-//            guard let nativeMode = CGDisplayCopyDisplayMode(id) else {
-//                continue
-//            }
-//            let nativeAspect = aspectRatio(of: nativeMode.pixelWidth, nativeMode.pixelHeight)
-//
-//            for mode in allModes {
-//                let hiDPI = mode.isHiDPI
-//                let modeAspect = aspectRatio(of: mode.pixelWidth, mode.pixelHeight)
-//                let matchesAspect = abs(modeAspect - nativeAspect) < 0.01
-//
-//                if hiDPI && matchesAspect && canSetResolution(displayID: id, mode: mode) {
-//                    validModes.append(mode)
-//                }
-//            }
-//
-//            if !validModes.isEmpty {
-//                displays.append(Display(id: id, modes: validModes))
-//            }
-//            
-//            
-//        }
-//
-//        return displays
-//    }
-    
     // 指定のモードに解像度を変更する
     func setResolution(displayID: CGDirectDisplayID, mode: CGDisplayMode) {
         var configRef: CGDisplayConfigRef?
@@ -165,9 +86,6 @@ class ResolutionManager {
         CGCompleteDisplayConfiguration(configRef, .permanently)
         print("✅ Resolution set to \(mode.width)x\(mode.height) for display \(displayID)")
     }
-
-    
-    
     func canSetResolution(displayID: CGDirectDisplayID, mode: CGDisplayMode) -> Bool {
         // 実際に CGDisplaySetDisplayMode で試してみるのは重いので、
         // 一般的には以下の条件などで判定
@@ -179,33 +97,8 @@ class ResolutionManager {
         if mode.width < minWidth || mode.height < minHeight {
             return false
         }
-
         return true
     }
-
-    
-    
-    
-    
-    
-    // このモードに設定可能か確認する（仮に試して確認）
-//    func canSetResolution(displayID: CGDirectDisplayID, mode: CGDisplayMode) -> Bool {
-//        var configRef: CGDisplayConfigRef?
-//        let beginResult = CGBeginDisplayConfiguration(&configRef)
-//        if beginResult != .success {
-//            print("❌ BeginDisplayConfig failed for display \(displayID)")
-//            return false
-//        }
-//
-//        let result = CGConfigureDisplayWithDisplayMode(configRef, displayID, mode, nil)
-//        CGCancelDisplayConfiguration(configRef)
-//
-//        if result != .success {
-//            print("❌ Cannot set resolution \(mode.width)x\(mode.height) for display \(displayID): error \(result.rawValue)")
-//        }
-//
-//        return result == .success
-//    }
 }
 
 func aspectRatio(of width: Int, _ height: Int) -> Double {

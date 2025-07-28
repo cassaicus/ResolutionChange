@@ -1,3 +1,5 @@
+You can select the maximum resolution for your MacBook’s Retina display.
+
 ResolutionChange - Instant Screen Resolution Switcher for macOS
 ResolutionChange is a lightweight menu bar app that lets you adjust your screen resolution with a single touch. No more navigating through settings—it's fast, intuitive, and always at your fingertips! 🎛️✨
 

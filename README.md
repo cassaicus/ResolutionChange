@@ -7,3 +7,5 @@ One-touch resolution adjustment: Simplify your workflow with instant changes.
 macOS-friendly design: Compact, seamless, and optimized for your Mac.
 
 Perfect for multitaskers: Quickly switch resolutions for different tasks.
+
+![sc](https://github.com/user-attachments/assets/83ddb84d-2f35-492e-a717-131b859a380a)

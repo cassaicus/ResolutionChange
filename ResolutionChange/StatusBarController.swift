@@ -159,11 +159,11 @@ final class StatusBarController: NSObject {
         if favorites.contains(resStr) {
             // すでに登録されている → 削除
             favorites.removeAll { $0 == resStr }
-            //print("⭐️ Removed favorite: \(resStr)")
+            //print("Removed favorite: \(resStr)")
         } else {
             // 登録されていない → 追加
             favorites.append(resStr)
-            //print("⭐️ Added favorite: \(resStr)")
+            //print("Added favorite: \(resStr)")
         }
         UserDefaults.standard.set(favorites, forKey: "FavoriteResolutions")
         // メニューを再構築して見た目を更新

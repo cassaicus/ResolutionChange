@@ -83,21 +83,21 @@ class ResolutionManager {
         // 解像度変更の設定を開始
         let beginResult = CGBeginDisplayConfiguration(&configRef)
         if beginResult != .success {
-            //print("❌ Failed to begin display config: \(beginResult.rawValue)")
+            //print("Failed to begin display config: \(beginResult.rawValue)")
             // 開始に失敗したら終了
             return
         }
         // 実際に解像度を設定
         let result = CGConfigureDisplayWithDisplayMode(configRef, displayID, mode, nil)
         if result != .success {
-            //print("❌ Failed to set resolution \(mode.width)x\(mode.height): \(result.rawValue)")
+            //print("Failed to set resolution \(mode.width)x\(mode.height): \(result.rawValue)")
             // エラー時はキャンセル
             CGCancelDisplayConfiguration(configRef)
             return
         }
         // 設定を永続的に適用
         CGCompleteDisplayConfiguration(configRef, .permanently)
-        //print("✅ Resolution set to \(mode.width)x\(mode.height) for display \(displayID)")
+        //print("Resolution set to \(mode.width)x\(mode.height) for display \(displayID)")
     }
     
     // 指定の解像度モードが使用可能かどうかを簡易判定（小さすぎるモードを除外）
@@ -127,16 +127,17 @@ extension CGDisplayMode {
     var isVirtualMode: Bool {
         return self.ioDisplayModeID == 0
     }
-
-    // テレビ出力（HDRや16bit floatなど）かの判定
-//    var isTelevisionOutput: Bool {
-//        return (self.pixelEncoding as String?) == "kIO16BitFloatPixels"
-//    }
     
     // HiDPIモード（物理ピクセルが論理ピクセルの2倍以上）かを判定
     var isHiDPI: Bool {
         return (self.pixelWidth / self.width) >= 2
     }
+
+// テレビ出力（HDRや16bit floatなど）かの判定
+//    var isTelevisionOutput: Bool {
+//        return (self.pixelEncoding as String?) == "kIO16BitFloatPixels"
+//    }
+    
 }
 
 

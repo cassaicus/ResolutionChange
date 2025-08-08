@@ -25,7 +25,7 @@ final class StatusBarController: NSObject {
     // 解像度を管理するためのマネージャークラス（独自定義のResolutionManager）
     private let resolutionManager = ResolutionManager()
     // UserDefaultsキー
-    private let favoriteResolutionsKey = "FavoriteResolutions"
+    private static let favoriteResolutionsKey = "FavoriteResolutions"
     
     // 初期化処理
     override init() {
@@ -56,6 +56,29 @@ final class StatusBarController: NSObject {
         let menu = NSMenu()
         // 利用可能なディスプレイ情報を取得
         let displays = resolutionManager.getDisplays()
+
+        // ディスプレイが見つからない場合のエラーハンドリング
+        if displays.isEmpty {
+            let errorItem = NSMenuItem(title: "ディスプレイが見つかりません", action: nil, keyEquivalent: "")
+            errorItem.isEnabled = false
+            menu.addItem(errorItem)
+
+            menu.addItem(NSMenuItem.separator())
+
+            // リスト再読み込み項目
+            let refreshItem = NSMenuItem(title: "Refresh List", action: #selector(refreshMenu), keyEquivalent: "r")
+            refreshItem.target = self
+            menu.addItem(refreshItem)
+
+            // 終了項目
+            menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q").then {
+                $0.target = self
+            })
+
+            statusItem.menu = menu
+            return
+        }
+
         // 最初のディスプレイのみ対応（他ディスプレイの対応は未実装）
         guard let display = displays.first else { return }
         // 現在の解像度を取得し、文字列に変換
@@ -186,7 +209,7 @@ final class StatusBarController: NSObject {
     @objc private func toggleFavorite(_ sender: NSMenuItem) {
         guard let resStr = sender.representedObject as? String else { return }
         
-        var favorites = UserDefaults.standard.stringArray(forKey: "FavoriteResolutions") ?? []
+        var favorites = UserDefaults.standard.stringArray(forKey: Self.favoriteResolutionsKey) ?? []
         
         if favorites.contains(resStr) {
             // すでに登録されている → 削除
@@ -197,7 +220,7 @@ final class StatusBarController: NSObject {
             favorites.append(resStr)
             //print("Added favorite: \(resStr)")
         }
-        UserDefaults.standard.set(favorites, forKey: "FavoriteResolutions")
+        UserDefaults.standard.set(favorites, forKey: Self.favoriteResolutionsKey)
         // メニューを再構築して見た目を更新
         refreshMenu()
     }
@@ -219,7 +242,7 @@ final class StatusBarController: NSObject {
     
     // UserDefaults からお気に入り解像度を取得
     private func getFavoriteResolutions() -> [String] {
-        return UserDefaults.standard.stringArray(forKey: favoriteResolutionsKey) ?? []
+        return UserDefaults.standard.stringArray(forKey: Self.favoriteResolutionsKey) ?? []
     }
     
     // 解像度を変更するアクション（NSMenuItem から情報を取得）

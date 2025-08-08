@@ -1,5 +1,22 @@
 import Cocoa  // macOSアプリの基本機能（UI含む）を提供するフレームワークをインポート
 import ServiceManagement  // アプリのログイン時自動起動を制御するためのフレームワークをインポート
+import CoreGraphics // ディスプレイ情報にアクセスするためにインポート
+
+// ディスプレイ再構成コールバック関数
+private func displayReconfigurationCallback(display: CGDirectDisplayID, flags: CGDisplayChangeSummaryFlags, userInfo: UnsafeMutableRawPointer?) {
+    // userInfoからStatusBarControllerのインスタンスを取得
+    if let userInfo = userInfo {
+        let controller = Unmanaged<StatusBarController>.fromOpaque(userInfo).takeUnretainedValue()
+        // ディスプレイ構成の変更があった場合にメニューを更新
+        // .beginConfigurationFlag は多くの変更で発生するため、ここで更新をかける
+        if flags.contains(.beginConfigurationFlag) || flags.contains(.addFlag) || flags.contains(.removeFlag) {
+            // メインスレッドでUI更新を実行
+            DispatchQueue.main.async {
+                controller.handleDisplayReconfiguration()
+            }
+        }
+    }
+}
 
 // ステータスバーのコントローラークラス（NSStatusItemとメニューを管理）
 final class StatusBarController: NSObject {
@@ -21,6 +38,16 @@ final class StatusBarController: NSObject {
         }
         // メニュー構築関数の呼び出し
         constructMenu()
+
+        // ディスプレイ再構成コールバックを登録
+        let pointer = Unmanaged.passUnretained(self).toOpaque()
+        CGDisplayRegisterReconfigurationCallback(displayReconfigurationCallback, pointer)
+    }
+
+    deinit {
+        // コールバックの登録を解除
+        let pointer = Unmanaged.passUnretained(self).toOpaque()
+        CGDisplayRemoveReconfigurationCallback(displayReconfigurationCallback, pointer)
     }
     
     // メニューを構築する関数
@@ -148,7 +175,12 @@ final class StatusBarController: NSObject {
         // 最終的にメニューをステータスアイテムに設定
         statusItem.menu = menu
     }
-    
+
+    // ディスプレイ構成が変更されたときにコールバックから呼び出される
+    func handleDisplayReconfiguration() {
+        //print("Display reconfiguration detected. Refreshing menu.")
+        refreshMenu()
+    }
     
     // お気に入りのオン・オフを切り替えるアクション
     @objc private func toggleFavorite(_ sender: NSMenuItem) {

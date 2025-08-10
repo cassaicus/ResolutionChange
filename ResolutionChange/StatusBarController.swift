@@ -21,6 +21,7 @@ private func displayReconfigurationCallback(display: CGDirectDisplayID, flags: C
 }
 
 // ステータスバーのコントローラークラス（NSStatusItemとメニューを管理）
+@MainActor
 final class StatusBarController: NSObject {
     // ステータスバーアイテム（メニューバーに表示されるアイコン）
     private var statusItem: NSStatusItem!

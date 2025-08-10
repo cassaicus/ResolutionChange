@@ -29,7 +29,7 @@ final class StatusBarController: NSObject {
     // UserDefaultsキー
     private static let favoriteResolutionsKey = "FavoriteResolutions"
     
-    @StateObject private var store = InAppPurchaseManager()
+    private let store = InAppPurchaseManager()
     private var cancellables = Set<AnyCancellable>()
     private var purchaseWindow: NSWindow?
 

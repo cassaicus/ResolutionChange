@@ -124,12 +124,12 @@ final class StatusBarController: NSObject {
             item.target = self
             item.representedObject = (display.id, mode)
 
-            if store.hasUnlockedFullVersion {
-                // 現在の解像度にはチェックマークを付ける
-                if fav == currentRes {
-                    item.state = .on
-                }
-            } else {
+            // 現在の解像度にはチェックマークを付ける
+            if fav == currentRes {
+                item.state = .on
+            }
+            
+            if !store.hasUnlockedFullVersion {
                 // 未購入の場合はグレーアウト表示
                 let attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor.disabledControlTextColor]
                 item.attributedTitle = NSAttributedString(string: fav, attributes: attributes)

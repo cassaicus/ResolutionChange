@@ -1,4 +1,5 @@
 import Cocoa  // macOSアプリの基本機能（UI含む）を提供するフレームワークをインポート
+import SwiftUI
 import ServiceManagement  // アプリのログイン時自動起動を制御するためのフレームワークをインポート
 import CoreGraphics // ディスプレイ情報にアクセスするためにインポート
 
@@ -26,6 +27,9 @@ final class StatusBarController: NSObject {
     private let resolutionManager = ResolutionManager()
     // UserDefaultsキー
     private static let favoriteResolutionsKey = "FavoriteResolutions"
+    
+    @StateObject private var store = InAppPurchaseManager()
+
     
     // 初期化処理
     override init() {
@@ -191,6 +195,13 @@ final class StatusBarController: NSObject {
         autorunItem.state = isLoginItemEnabled() ? .on : .off
         menu.addItem(autorunItem)
         
+        
+        menu.addItem(NSMenuItem(title: "Settings", action: #selector(quitApp), keyEquivalent: "").then {
+            $0.target = self
+        })
+        
+        //区切り線を追加
+        menu.addItem(NSMenuItem.separator())
         // 終了項目（ショートカットキー "q"）
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q").then {
             $0.target = self
@@ -247,6 +258,9 @@ final class StatusBarController: NSObject {
     
     // 解像度を変更するアクション（NSMenuItem から情報を取得）
     @objc private func changeResolution(_ sender: NSMenuItem) {
+        
+//        if(!store.hasUnlockedFullVersion){return}
+        
         guard let (displayID, mode) = sender.representedObject as? (CGDirectDisplayID, CGDisplayMode) else {
             //print("representedObject not set correctly")
             return

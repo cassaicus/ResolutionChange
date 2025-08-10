@@ -101,35 +101,42 @@ final class StatusBarController: NSObject {
         // UserDefaults からお気に入り解像度のリストを取得
         let favoriteStrings = getFavoriteResolutions()
         
-        if store.hasUnlockedFullVersion {
-            // お気に入り解像度をピクセル数（面積）で降順に並べる
-            let sortedFavorites = favoriteStrings.sorted { a, b in
-                // 解像度文字列を数値に変換（"1440x900" → (1440, 900)）
-                guard let (aw, ah) = parseResolutionString(a),
-                      let (bw, bh) = parseResolutionString(b) else {
-                    // パースできない場合は文字列で比較
-                    return a < b
-                }
-                // ピクセル数が大きい方を上に
-                return (aw * ah) > (bw * bh)
+        // お気に入り解像度をピクセル数（面積）で降順に並べる
+        let sortedFavorites = favoriteStrings.sorted { a, b in
+            // 解像度文字列を数値に変換（"1440x900" → (1440, 900)）
+            guard let (aw, ah) = parseResolutionString(a),
+                  let (bw, bh) = parseResolutionString(b) else {
+                // パースできない場合は文字列で比較
+                return a < b
             }
-            
-            // 並べたお気に入りをメニューに追加
-            for fav in sortedFavorites {
-                guard let (w, h) = parseResolutionString(fav),
-                      let mode = display.modes.first(where: { $0.width == w && $0.height == h }) else { continue }
+            // ピクセル数が大きい方を上に
+            return (aw * ah) > (bw * bh)
+        }
 
-                let item = NSMenuItem(title: fav, action: #selector(changeResolution(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = (display.id, mode)
+        // 並べたお気に入りをメニューに追加
+        for fav in sortedFavorites {
+            guard let (w, h) = parseResolutionString(fav),
+                  let mode = display.modes.first(where: { $0.width == w && $0.height == h }) else { continue }
+            
+            let item = NSMenuItem(title: fav, action: #selector(favoriteResolutionSelected(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = (display.id, mode)
+
+            if store.hasUnlockedFullVersion {
                 // 現在の解像度にはチェックマークを付ける
                 if fav == currentRes {
                     item.state = .on
                 }
-                // メニューに追加
-                menu.addItem(item)
+            } else {
+                // 未購入の場合はグレーアウト表示
+                let attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor.disabledControlTextColor]
+                item.attributedTitle = NSAttributedString(string: fav, attributes: attributes)
             }
+            // メニューに追加
+            menu.addItem(item)
+        }
 
+        if !favoriteStrings.isEmpty {
             //区切り線を追加
             menu.addItem(NSMenuItem.separator())
         }
@@ -213,10 +220,6 @@ final class StatusBarController: NSObject {
             })
         }
         
-        menu.addItem(NSMenuItem(title: "Settings", action: #selector(quitApp), keyEquivalent: "").then {
-            $0.target = self
-        })
-        
         //区切り線を追加
         menu.addItem(NSMenuItem.separator())
         // 終了項目（ショートカットキー "q"）
@@ -243,6 +246,14 @@ final class StatusBarController: NSObject {
                 // 製品が見つからない場合、アラートを表示
                 showAlert(title: "Purchase Error", message: "Product not found. Please try again later.")
             }
+        }
+    }
+
+    @objc private func favoriteResolutionSelected(_ sender: NSMenuItem) {
+        if store.hasUnlockedFullVersion {
+            changeResolution(sender)
+        } else {
+            purchaseAction()
         }
     }
     

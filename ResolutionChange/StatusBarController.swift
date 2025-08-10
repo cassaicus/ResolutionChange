@@ -2,6 +2,7 @@ import Cocoa  // macOSアプリの基本機能（UI含む）を提供するフ�
 import SwiftUI
 import ServiceManagement  // アプリのログイン時自動起動を制御するためのフレームワークをインポート
 import CoreGraphics // ディスプレイ情報にアクセスするためにインポート
+import Combine
 
 // ディスプレイ再構成コールバック関数
 private func displayReconfigurationCallback(display: CGDirectDisplayID, flags: CGDisplayChangeSummaryFlags, userInfo: UnsafeMutableRawPointer?) {
@@ -29,6 +30,7 @@ final class StatusBarController: NSObject {
     private static let favoriteResolutionsKey = "FavoriteResolutions"
     
     @StateObject private var store = InAppPurchaseManager()
+    private var cancellables = Set<AnyCancellable>()
 
     
     // 初期化処理
@@ -40,6 +42,14 @@ final class StatusBarController: NSObject {
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "display", accessibilityDescription: "Resolution")
         }
+
+        store.$hasUnlockedFullVersion
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshMenu()
+            }
+            .store(in: &cancellables)
+
         // メニュー構築関数の呼び出し
         constructMenu()
 
@@ -91,36 +101,38 @@ final class StatusBarController: NSObject {
         // UserDefaults からお気に入り解像度のリストを取得
         let favoriteStrings = getFavoriteResolutions()
         
-        // お気に入り解像度をピクセル数（面積）で降順に並べる
-        let sortedFavorites = favoriteStrings.sorted { a, b in
-            // 解像度文字列を数値に変換（"1440x900" → (1440, 900)）
-            guard let (aw, ah) = parseResolutionString(a),
-                  let (bw, bh) = parseResolutionString(b) else {
-                // パースできない場合は文字列で比較
-                return a < b
+        if store.hasUnlockedFullVersion {
+            // お気に入り解像度をピクセル数（面積）で降順に並べる
+            let sortedFavorites = favoriteStrings.sorted { a, b in
+                // 解像度文字列を数値に変換（"1440x900" → (1440, 900)）
+                guard let (aw, ah) = parseResolutionString(a),
+                      let (bw, bh) = parseResolutionString(b) else {
+                    // パースできない場合は文字列で比較
+                    return a < b
+                }
+                // ピクセル数が大きい方を上に
+                return (aw * ah) > (bw * bh)
             }
-            // ピクセル数が大きい方を上に
-            return (aw * ah) > (bw * bh)
-        }
-        
-        // 並べたお気に入りをメニューに追加
-        for fav in sortedFavorites {
-            guard let (w, h) = parseResolutionString(fav),
-                  let mode = display.modes.first(where: { $0.width == w && $0.height == h }) else { continue }
             
-            let item = NSMenuItem(title: fav, action: #selector(changeResolution(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = (display.id, mode)
-            // 現在の解像度にはチェックマークを付ける
-            if fav == currentRes {
-                item.state = .on
+            // 並べたお気に入りをメニューに追加
+            for fav in sortedFavorites {
+                guard let (w, h) = parseResolutionString(fav),
+                      let mode = display.modes.first(where: { $0.width == w && $0.height == h }) else { continue }
+
+                let item = NSMenuItem(title: fav, action: #selector(changeResolution(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = (display.id, mode)
+                // 現在の解像度にはチェックマークを付ける
+                if fav == currentRes {
+                    item.state = .on
+                }
+                // メニューに追加
+                menu.addItem(item)
             }
-            // メニューに追加
-            menu.addItem(item)
+
+            //区切り線を追加
+            menu.addItem(NSMenuItem.separator())
         }
-        
-        //区切り線を追加
-        menu.addItem(NSMenuItem.separator())
         
         // Display メニュー
         for display in displays {
@@ -195,6 +207,11 @@ final class StatusBarController: NSObject {
         autorunItem.state = isLoginItemEnabled() ? .on : .off
         menu.addItem(autorunItem)
         
+        if !store.hasUnlockedFullVersion {
+            menu.addItem(NSMenuItem(title: "Unlock Favorite Feature", action: #selector(purchaseAction), keyEquivalent: "").then {
+                $0.target = self
+            })
+        }
         
         menu.addItem(NSMenuItem(title: "Settings", action: #selector(quitApp), keyEquivalent: "").then {
             $0.target = self
@@ -215,9 +232,26 @@ final class StatusBarController: NSObject {
         //print("Display reconfiguration detected. Refreshing menu.")
         refreshMenu()
     }
+
+    @objc private func purchaseAction() {
+        Task {
+            // "unlock_full_version" というIDを持つ製品を探す
+            if let product = store.products.first(where: { $0.id == "unlock_full_version" }) {
+                // 購入処理を呼び出す
+                await store.purchase(product)
+            } else {
+                // 製品が見つからない場合、アラートを表示
+                showAlert(title: "Purchase Error", message: "Product not found. Please try again later.")
+            }
+        }
+    }
     
     // お気に入りのオン・オフを切り替えるアクション
     @objc private func toggleFavorite(_ sender: NSMenuItem) {
+        if !store.hasUnlockedFullVersion {
+            purchaseAction()
+            return
+        }
         guard let resStr = sender.representedObject as? String else { return }
         
         var favorites = UserDefaults.standard.stringArray(forKey: Self.favoriteResolutionsKey) ?? []
@@ -278,6 +312,16 @@ final class StatusBarController: NSObject {
     // アプリケーションを終了
     @objc private func quitApp() {
         NSApp.terminate(nil)
+    }
+
+    // アラートを表示するためのヘルパーメソッド
+    private func showAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }
 

@@ -21,7 +21,7 @@ private func displayReconfigurationCallback(display: CGDirectDisplayID, flags: C
 }
 
 // ステータスバーのコントローラークラス（NSStatusItemとメニューを管理）
-final class StatusBarController: NSObject, NSWindowDelegate {
+final class StatusBarController: NSObject {
     // ステータスバーアイテム（メニューバーに表示されるアイコン）
     private var statusItem: NSStatusItem!
     // 解像度を管理するためのマネージャークラス（独自定義のResolutionManager）
@@ -238,34 +238,31 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     }
 
     @objc private func showPurchaseWindow() {
-        // 既存のウィンドウがあれば、それを前面に表示
-        if let purchaseWindow = purchaseWindow {
-            purchaseWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
+        if self.purchaseWindow == nil {
+            // SwiftUIビューを生成
+            let purchaseView = PurchaseView(store: self.store)
+            // NSHostingViewでSwiftUIビューをラップ
+            let hostingView = NSHostingView(rootView: purchaseView)
+
+            // ウィンドウを生成
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false)
+            window.center()
+            window.setFrameAutosaveName("PurchaseWindow")
+            window.contentView = hostingView
+            window.title = "Unlock Full Version"
+            // isReleasedWhenClosedをfalseに設定（デフォルトですが、明示的に）
+            // これにより、ウィンドウは閉じられてもメモリに残り、再利用可能
+            window.isReleasedWhenClosed = false
+
+            self.purchaseWindow = window
         }
 
-        // SwiftUIビューを生成
-        let purchaseView = PurchaseView(store: self.store)
-        // NSHostingViewでSwiftUIビューをラップ
-        let hostingView = NSHostingView(rootView: purchaseView)
-
-        // ウィンドウを生成
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false)
-        window.center()
-        window.setFrameAutosaveName("PurchaseWindow")
-        window.contentView = hostingView
-        window.title = "Unlock Full Version"
-        window.delegate = self
-
-        window.makeKeyAndOrderFront(nil)
+        self.purchaseWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-
-        self.purchaseWindow = window
     }
 
     @objc private func favoriteResolutionSelected(_ sender: NSMenuItem) {
@@ -342,12 +339,6 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     // アプリケーションを終了
     @objc private func quitApp() {
         NSApp.terminate(nil)
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        if (notification.object as? NSWindow) == self.purchaseWindow {
-            self.purchaseWindow = nil
-        }
     }
 }
 

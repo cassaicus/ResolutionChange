@@ -258,6 +258,8 @@ final class StatusBarController: NSObject {
             // isReleasedWhenClosedをfalseに設定（デフォルトですが、明示的に）
             // これにより、ウィンドウは閉じられてもメモリに残り、再利用可能
             window.isReleasedWhenClosed = false
+            // ウィンドウレベルを上げて、他のウィンドウより手前に表示
+            window.level = .floating
 
             self.purchaseWindow = window
         }

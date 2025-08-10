@@ -276,10 +276,6 @@ final class StatusBarController: NSObject {
     
     // お気に入りのオン・オフを切り替えるアクション
     @objc private func toggleFavorite(_ sender: NSMenuItem) {
-        if !store.hasUnlockedFullVersion {
-            showPurchaseWindow()
-            return
-        }
         guard let resStr = sender.representedObject as? String else { return }
         
         var favorites = UserDefaults.standard.stringArray(forKey: Self.favoriteResolutionsKey) ?? []

@@ -21,7 +21,7 @@ private func displayReconfigurationCallback(display: CGDirectDisplayID, flags: C
 }
 
 // ステータスバーのコントローラークラス（NSStatusItemとメニューを管理）
-final class StatusBarController: NSObject {
+final class StatusBarController: NSObject, NSWindowDelegate {
     // ステータスバーアイテム（メニューバーに表示されるアイコン）
     private var statusItem: NSStatusItem!
     // 解像度を管理するためのマネージャークラス（独自定義のResolutionManager）
@@ -31,6 +31,7 @@ final class StatusBarController: NSObject {
     
     @StateObject private var store = InAppPurchaseManager()
     private var cancellables = Set<AnyCancellable>()
+    private var purchaseWindow: NSWindow?
 
     
     // 初期化処理
@@ -215,7 +216,7 @@ final class StatusBarController: NSObject {
         menu.addItem(autorunItem)
         
         if !store.hasUnlockedFullVersion {
-            menu.addItem(NSMenuItem(title: "Unlock Favorite Feature", action: #selector(purchaseAction), keyEquivalent: "").then {
+            menu.addItem(NSMenuItem(title: "Unlock Favorite Feature...", action: #selector(showPurchaseWindow), keyEquivalent: "").then {
                 $0.target = self
             })
         }
@@ -236,31 +237,49 @@ final class StatusBarController: NSObject {
         refreshMenu()
     }
 
-    @objc private func purchaseAction() {
-        Task {
-            // "unlock_full_version" というIDを持つ製品を探す
-            if let product = store.products.first(where: { $0.id == "unlock_full_version" }) {
-                // 購入処理を呼び出す
-                await store.purchase(product)
-            } else {
-                // 製品が見つからない場合、アラートを表示
-                showAlert(title: "Purchase Error", message: "Product not found. Please try again later.")
-            }
+    @objc private func showPurchaseWindow() {
+        // 既存のウィンドウがあれば、それを前面に表示
+        if let purchaseWindow = purchaseWindow {
+            purchaseWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
         }
+
+        // SwiftUIビューを生成
+        let purchaseView = PurchaseView(store: self.store)
+        // NSHostingViewでSwiftUIビューをラップ
+        let hostingView = NSHostingView(rootView: purchaseView)
+
+        // ウィンドウを生成
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false)
+        window.center()
+        window.setFrameAutosaveName("PurchaseWindow")
+        window.contentView = hostingView
+        window.title = "Unlock Full Version"
+        window.delegate = self
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+
+        self.purchaseWindow = window
     }
 
     @objc private func favoriteResolutionSelected(_ sender: NSMenuItem) {
         if store.hasUnlockedFullVersion {
             changeResolution(sender)
         } else {
-            purchaseAction()
+            showPurchaseWindow()
         }
     }
     
     // お気に入りのオン・オフを切り替えるアクション
     @objc private func toggleFavorite(_ sender: NSMenuItem) {
         if !store.hasUnlockedFullVersion {
-            purchaseAction()
+            showPurchaseWindow()
             return
         }
         guard let resStr = sender.representedObject as? String else { return }
@@ -325,14 +344,10 @@ final class StatusBarController: NSObject {
         NSApp.terminate(nil)
     }
 
-    // アラートを表示するためのヘルパーメソッド
-    private func showAlert(title: String, message: String) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = message
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+    func windowWillClose(_ notification: Notification) {
+        if (notification.object as? NSWindow) == self.purchaseWindow {
+            self.purchaseWindow = nil
+        }
     }
 }
 

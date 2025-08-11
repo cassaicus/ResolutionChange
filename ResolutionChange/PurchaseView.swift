@@ -34,9 +34,6 @@ struct PurchaseView: View {
                 }
             }
 
-            Text("You can manage your favorites from the 'Favorite' submenu.")
-                .font(.caption)
-                .foregroundColor(.secondary)
         }
         .padding(40)
         .frame(minWidth: 400, minHeight: 300)

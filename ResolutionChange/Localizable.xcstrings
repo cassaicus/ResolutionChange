@@ -1,7 +1,52 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "🎉 Thank you for your purchase! The Favorite feature is now unlocked." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ありがとうございます"
+          }
+        }
+      }
+    },
+    "Loading product information..." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "購入情報を確認中"
+          }
+        }
+      }
+    },
+    "Purchase for %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "購入　 %@"
+          }
+        }
+      }
+    },
+    "Purchase the full version to unlock the Favorite feature." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "お気に入り機能を使うには、フルバージョンの購入が必要です。"
+          }
+        }
+      }
+    },
+    "Unlock Favorites" : {
 
+    },
+    "このアプリはメニューバーに常駐します。" : {
+
+    }
   },
   "version" : "1.0"
 }

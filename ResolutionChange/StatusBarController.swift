@@ -23,16 +23,28 @@ private func displayReconfigurationCallback(display: CGDirectDisplayID, flags: C
 // ステータスバーのコントローラークラス（NSStatusItemとメニューを管理）
 @MainActor
 final class StatusBarController: NSObject {
-    // ステータスバーアイテム（メニューバーに表示されるアイコン）
+    // MARK: - Properties
     private var statusItem: NSStatusItem!
-    // 解像度を管理するためのマネージャークラス（独自定義のResolutionManager）
     private let resolutionManager = ResolutionManager()
-    // UserDefaultsキー
-    private static let favoriteResolutionsKey = "FavoriteResolutions"
-    
     private let store = InAppPurchaseManager()
     private var cancellables = Set<AnyCancellable>()
     private var purchaseWindow: NSWindow?
+
+    // MARK: - Constants
+    private enum UI {
+        static let displayMenuTitle = "Display"
+        static let favoriteMenuTitle = "Favorite"
+        static let refreshListTitle = "Refresh List"
+        static let autoRunTitle = "Auto Run"
+        static let unlockFeatureTitle = "Unlock Favorite Feature..."
+        static let quitTitle = "Quit"
+        static let noDisplaysFoundTitle = "ディスプレイが見つかりません"
+    }
+
+    private enum UserDefaultsKeys {
+        // [String: [String]] の形式で保存 (CGDirectDisplayIDはIntなのでStringに変換)
+        static let favoriteResolutionsByDisplay = "FavoriteResolutionsByDisplay"
+    }
 
     
     // 初期化処理
@@ -66,52 +78,68 @@ final class StatusBarController: NSObject {
         CGDisplayRemoveReconfigurationCallback(displayReconfigurationCallback, pointer)
     }
     
-    // メニューを構築する関数
     private func constructMenu() {
-        // 新しいメニューを生成
         let menu = NSMenu()
-        // 利用可能なディスプレイ情報を取得
         let displays = resolutionManager.getDisplays()
 
-        // ディスプレイが見つからない場合のエラーハンドリング
         if displays.isEmpty {
-            let errorItem = NSMenuItem(title: "ディスプレイが見つかりません", action: nil, keyEquivalent: "")
-            errorItem.isEnabled = false
-            menu.addItem(errorItem)
-
-            menu.addItem(NSMenuItem.separator())
-
-            // リスト再読み込み項目
-            let refreshItem = NSMenuItem(title: "Refresh List", action: #selector(refreshMenu), keyEquivalent: "r")
-            refreshItem.target = self
-            menu.addItem(refreshItem)
-
-            // 終了項目
-            menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q").then {
-                $0.target = self
-            })
-
+            buildEmptyMenu(on: menu)
             statusItem.menu = menu
             return
         }
 
-        // 最初のディスプレイのみ対応（他ディスプレイの対応は未実装）
-        guard let display = displays.first else { return }
-        // 現在の解像度を取得し、文字列に変換
+        // 各ディスプレイのお気に入りをトップレベルに表示
+        for display in displays {
+            buildFavoritesMenu(for: display, on: menu, displayCount: displays.count)
+        }
+
+        if displays.contains(where: { !getFavoriteResolutions(for: $0.id).isEmpty }) {
+             menu.addItem(NSMenuItem.separator())
+        }
+
+        // 各ディスプレイのメニューを構築
+        for display in displays {
+            buildDisplaySubMenu(for: display, on: menu)
+        }
+
+        menu.addItem(NSMenuItem.separator())
+
+        // 各ディスプレイのお気に入り管理メニューを構築
+        for display in displays {
+            buildFavoriteManagementSubMenu(for: display, on: menu)
+        }
+
+        menu.addItem(NSMenuItem.separator())
+
+        // コントロール項目を構築
+        buildControlMenu(on: menu)
+
+        statusItem.menu = menu
+    }
+
+    private func buildEmptyMenu(on menu: NSMenu) {
+        let errorItem = NSMenuItem(title: UI.noDisplaysFoundTitle, action: nil, keyEquivalent: "")
+        errorItem.isEnabled = false
+        menu.addItem(errorItem)
+        menu.addItem(NSMenuItem.separator())
+        let refreshItem = NSMenuItem(title: UI.refreshListTitle, action: #selector(refreshMenu), keyEquivalent: "r")
+        refreshItem.target = self
+        menu.addItem(refreshItem)
+        menu.addItem(NSMenuItem(title: UI.quitTitle, action: #selector(quitApp), keyEquivalent: "q").then {
+            $0.target = self
+        })
+    }
+
+    private func buildFavoritesMenu(for display: Display, on menu: NSMenu, displayCount: Int) {
+        let favoriteStrings = getFavoriteResolutions(for: display.id)
+        if favoriteStrings.isEmpty { return }
+
         let currentMode = CGDisplayCopyDisplayMode(display.id)
         let currentRes = currentMode.map { "\($0.width)x\($0.height)" }
-        // UserDefaults からお気に入り解像度のリストを取得
-        let favoriteStrings = getFavoriteResolutions()
-        
+
         // お気に入り解像度をピクセル数（面積）で降順に並べる
         let sortedFavorites = favoriteStrings.sorted { a, b in
-            // 解像度文字列を数値に変換（"1440x900" → (1440, 900)）
-            guard let (aw, ah) = parseResolutionString(a),
-                  let (bw, bh) = parseResolutionString(b) else {
-                // パースできない場合は文字列で比較
-                return a < b
-            }
-            // ピクセル数が大きい方を上に
+            guard let (aw, ah) = parseResolutionString(a), let (bw, bh) = parseResolutionString(b) else { return a < b }
             return (aw * ah) > (bw * bh)
         }
 
@@ -120,116 +148,88 @@ final class StatusBarController: NSObject {
             guard let (w, h) = parseResolutionString(fav),
                   let mode = display.modes.first(where: { $0.width == w && $0.height == h }) else { continue }
             
-            let item = NSMenuItem(title: fav, action: #selector(favoriteResolutionSelected(_:)), keyEquivalent: "")
+            let title = displayCount > 1 ? "🖥️\(display.id): \(fav)" : fav
+            let item = NSMenuItem(title: title, action: #selector(favoriteResolutionSelected(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = (display.id, mode)
 
-            // 現在の解像度にはチェックマークを付ける
             if fav == currentRes {
                 item.state = .on
             }
             
             if !store.hasUnlockedFullVersion {
-                // 未購入の場合はグレーアウト表示
                 let attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor.disabledControlTextColor]
-                item.attributedTitle = NSAttributedString(string: fav, attributes: attributes)
+                item.attributedTitle = NSAttributedString(string: title, attributes: attributes)
             }
-            // メニューに追加
             menu.addItem(item)
         }
+    }
 
-        if !favoriteStrings.isEmpty {
-            //区切り線を追加
-            menu.addItem(NSMenuItem.separator())
-        }
+    private func buildDisplaySubMenu(for display: Display, on menu: NSMenu) {
+        let displayItem = NSMenuItem(title: "\(UI.displayMenuTitle) \(display.id)", action: nil, keyEquivalent: "")
+        let subMenu = NSMenu()
+        let currentMode = CGDisplayCopyDisplayMode(display.id)
         
-        // Display メニュー
-        for display in displays {
-            let displayItem = NSMenuItem(title: "Display \(display.id)", action: nil, keyEquivalent: "")
-            let subMenu = NSMenu()
-            let currentMode = CGDisplayCopyDisplayMode(display.id)
+        for mode in display.modes {
+            let title = "\(mode.width)x\(mode.height)"
+            let item = NSMenuItem(title: title, action: #selector(changeResolution(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = (display.id, mode)
+            item.isEnabled = resolutionManager.canSetResolution(displayID: display.id, mode: mode)
             
-            // 各解像度モードをサブメニューに追加
-            for mode in display.modes {
-                let title = "\(mode.width)x\(mode.height)"
-                let item = NSMenuItem(title: title, action: #selector(changeResolution(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = (display.id, mode)
-                
-                // このモードに切り替え可能か確認
-                let canSet = resolutionManager.canSetResolution(displayID: display.id, mode: mode)
-                item.isEnabled = canSet
-                // 現在の解像度にはチェックマークを付ける
-                if let cur = currentMode, cur.ioDisplayModeID == mode.ioDisplayModeID {
-                    item.state = .on
-                }
-                subMenu.addItem(item)
+            if let cur = currentMode, cur.ioDisplayModeID == mode.ioDisplayModeID {
+                item.state = .on
             }
-            // サブメニューをディスプレイ項目に設定し、メニューに追加
-            displayItem.submenu = subMenu
-            menu.addItem(displayItem)
+            subMenu.addItem(item)
         }
-        
-        //区切り線を追加
-        menu.addItem(NSMenuItem.separator())
-        
-        // 「Favorite >」メニューを作成
-        let favoriteItem = NSMenuItem(title: "Favorite", action: nil, keyEquivalent: "")
-        let favoriteSubMenu = NSMenu()
-        
-        // 「[ Display 1 ]」のラベル行を追加（選択不可）
-        let headerItem = NSMenuItem(title: "[ Display 1 ]", action: nil, keyEquivalent: "")
-        headerItem.isEnabled = false // 選択不可にする
-        favoriteSubMenu.addItem(headerItem)
-        
-        // 各解像度ごとにお気に入り状態の切り替え項目を追加
+        displayItem.submenu = subMenu
+        menu.addItem(displayItem)
+    }
+
+    private func buildFavoriteManagementSubMenu(for display: Display, on menu: NSMenu) {
+        let favoriteItem = NSMenuItem(title: "\(UI.favoriteMenuTitle) (Display \(display.id))", action: nil, keyEquivalent: "")
+        let subMenu = NSMenu()
+        let favoriteStrings = getFavoriteResolutions(for: display.id)
+
         for mode in display.modes {
             let resStr = "\(mode.width)x\(mode.height)"
             let item = NSMenuItem(title: resStr, action: #selector(toggleFavorite(_:)), keyEquivalent: "")
             item.target = self
-            item.representedObject = resStr
-            // お気に入りに含まれていればチェック状態にする
+            item.representedObject = (display.id, resStr) // display.id を含める
             if favoriteStrings.contains(resStr) {
                 item.state = .on
             }
-            favoriteSubMenu.addItem(item)
+            subMenu.addItem(item)
         }
-        // 「Favorite >」メニューにサブメニューを設定
-        favoriteItem.submenu = favoriteSubMenu
-        // メインメニューに「Favorite >」メニューを追加
+        favoriteItem.submenu = subMenu
         menu.addItem(favoriteItem)
-        //区切り線を追加
-        menu.addItem(NSMenuItem.separator())
+    }
+
+    private func buildControlMenu(on menu: NSMenu) {
+        // Refresh List
+        menu.addItem(NSMenuItem(title: UI.refreshListTitle, action: #selector(refreshMenu), keyEquivalent: "r").then {
+            $0.target = self
+        })
         
-        // リスト再読み込み項目（ショートカットキー "r"）
-        let refreshItem = NSMenuItem(title: "Refresh List", action: #selector(refreshMenu), keyEquivalent: "r")
-        refreshItem.target = self
-        menu.addItem(refreshItem)
-        
-        // Auto Run　項目
-        let autorunItem = NSMenuItem(
-            title: "Auto Run",
-            action: #selector(AppDelegate.toggleAutorun(_:)),
-            keyEquivalent: ""
-        )
+        // Auto Run
+        let autorunItem = NSMenuItem(title: UI.autoRunTitle, action: #selector(AppDelegate.toggleAutorun(_:)), keyEquivalent: "")
         autorunItem.target = NSApp.delegate
         autorunItem.state = isLoginItemEnabled() ? .on : .off
         menu.addItem(autorunItem)
         
+        // Unlock Feature
         if !store.hasUnlockedFullVersion {
-            menu.addItem(NSMenuItem(title: "Unlock Favorite Feature...", action: #selector(showPurchaseWindow), keyEquivalent: "").then {
+            menu.addItem(NSMenuItem(title: UI.unlockFeatureTitle, action: #selector(showPurchaseWindow), keyEquivalent: "").then {
                 $0.target = self
             })
         }
         
-        //区切り線を追加
         menu.addItem(NSMenuItem.separator())
-        // 終了項目（ショートカットキー "q"）
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q").then {
+
+        // Quit
+        menu.addItem(NSMenuItem(title: UI.quitTitle, action: #selector(quitApp), keyEquivalent: "q").then {
             $0.target = self
         })
-        // 最終的にメニューをステータスアイテムに設定
-        statusItem.menu = menu
     }
 
     // ディスプレイ構成が変更されたときにコールバックから呼び出される
@@ -275,27 +275,43 @@ final class StatusBarController: NSObject {
             showPurchaseWindow()
         }
     }
+
+    // MARK: - Favorite Management
     
     // お気に入りのオン・オフを切り替えるアクション
     @objc private func toggleFavorite(_ sender: NSMenuItem) {
-        guard let resStr = sender.representedObject as? String else { return }
+        guard let (displayID, resStr) = sender.representedObject as? (CGDirectDisplayID, String) else { return }
         
-        var favorites = UserDefaults.standard.stringArray(forKey: Self.favoriteResolutionsKey) ?? []
+        var allFavorites = getAllFavoriteResolutions()
+        var displayFavorites = allFavorites[String(displayID)] ?? []
         
-        if favorites.contains(resStr) {
+        if displayFavorites.contains(resStr) {
             // すでに登録されている → 削除
-            favorites.removeAll { $0 == resStr }
-            //print("Removed favorite: \(resStr)")
+            displayFavorites.removeAll { $0 == resStr }
         } else {
             // 登録されていない → 追加
-            favorites.append(resStr)
-            //print("Added favorite: \(resStr)")
+            displayFavorites.append(resStr)
         }
-        UserDefaults.standard.set(favorites, forKey: Self.favoriteResolutionsKey)
+
+        allFavorites[String(displayID)] = displayFavorites
+
+        // UserDefaultsに保存
+        UserDefaults.standard.set(allFavorites, forKey: UserDefaultsKeys.favoriteResolutionsByDisplay)
+
         // メニューを再構築して見た目を更新
         refreshMenu()
     }
     
+    // 指定されたディスプレイのお気に入り解像度リストを取得
+    private func getFavoriteResolutions(for displayID: CGDirectDisplayID) -> [String] {
+        let allFavorites = getAllFavoriteResolutions()
+        return allFavorites[String(displayID)] ?? []
+    }
+
+    // すべてのディスプレイのお気に入り解像度を辞書形式で取得
+    private func getAllFavoriteResolutions() -> [String: [String]] {
+        return UserDefaults.standard.dictionary(forKey: UserDefaultsKeys.favoriteResolutionsByDisplay) as? [String: [String]] ?? [:]
+    }
     
     // "1440x900" のような文字列を (Int, Int) に変換するユーティリティ
     private func parseResolutionString(_ string: String) -> (Int, Int)? {
@@ -309,11 +325,6 @@ final class StatusBarController: NSObject {
     // メニューを再構築するためのアクション
     @objc private func refreshMenu() {
         constructMenu()
-    }
-    
-    // UserDefaults からお気に入り解像度を取得
-    private func getFavoriteResolutions() -> [String] {
-        return UserDefaults.standard.stringArray(forKey: Self.favoriteResolutionsKey) ?? []
     }
     
     // 解像度を変更するアクション（NSMenuItem から情報を取得）

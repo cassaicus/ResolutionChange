@@ -5,8 +5,11 @@ class InAppPurchaseManager: ObservableObject {
     @Published var hasUnlockedFullVersion = false
     @Published var products: [Product] = []
     
-    // 購入アイテムのID（App Store Connectと一致）
-    private let productIDs = ["unlock_full_version"]
+    private enum Constants {
+        static let fullVersionProductID = "unlock_full_version"
+    }
+
+    private let productIDs = [Constants.fullVersionProductID]
     
     init() {
         Task {
@@ -21,6 +24,7 @@ class InAppPurchaseManager: ObservableObject {
         do {
             products = try await Product.products(for: productIDs)
         } catch {
+            // TODO: より良いエラーハンドリング
             print("商品取得エラー: \(error)")
         }
     }
@@ -34,14 +38,18 @@ class InAppPurchaseManager: ObservableObject {
             case .success(let verification):
                 if case .verified(let transaction) = verification {
                     await transaction.finish()
-                    hasUnlockedFullVersion = true
+                    await MainActor.run {
+                        self.hasUnlockedFullVersion = true
+                    }
                 }
             case .userCancelled:
-                print("ユーザーが購入をキャンセル")
+                // ユーザーによるキャンセルはエラーではないので、ログ出力は任意
+                break
             default:
                 break
             }
         } catch {
+            // TODO: より良いエラーハンドリング
             print("購入エラー: \(error)")
         }
     }
@@ -51,7 +59,9 @@ class InAppPurchaseManager: ObservableObject {
         for await result in Transaction.currentEntitlements {
             if case .verified(let transaction) = result,
                productIDs.contains(transaction.productID) {
-                hasUnlockedFullVersion = true
+                await MainActor.run {
+                    self.hasUnlockedFullVersion = true
+                }
             }
         }
     }
@@ -62,10 +72,10 @@ class InAppPurchaseManager: ObservableObject {
             for await result in Transaction.updates {
                 if case .verified(let transaction) = result,
                    self.productIDs.contains(transaction.productID) {
+                    await transaction.finish()
                     await MainActor.run {
                         self.hasUnlockedFullVersion = true
                     }
-                    await transaction.finish()
                 }
             }
         }

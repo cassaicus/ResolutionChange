@@ -18,7 +18,7 @@ struct PurchaseView: View {
                     .font(.headline)
                     .multilineTextAlignment(.center)
 
-                if let product = store.products.first(where: { $0.id == "unlock_full_version" }) {
+                if let product = store.products.first { // Assuming only one product
                     Button {
                         Task {
                             await store.purchase(product)

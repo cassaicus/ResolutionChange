@@ -12,6 +12,12 @@ struct Display {
 
 // 解像度操作を管理するクラス
 class ResolutionManager {
+    // 定数
+    private enum Constants {
+        static let minDisplayableWidth = 1000 // 表示する解像度の最小幅
+        static let minDisplayableHeight = 600 // 表示する解像度の最小高さ
+    }
+
     // 接続中のディスプレイと、その使用可能なモード一覧を取得
     func getDisplays() -> [Display] {
         // 検出されたディスプレイ数を格納する変数
@@ -19,8 +25,7 @@ class ResolutionManager {
         // ディスプレイ数を取得（最初はnilでカウントのみ）
         var result = CGGetOnlineDisplayList(0, nil, &displayCount)
         if result != .success {
-            //print("❌ Failed to get display count")
-            // エラー発生時は空配列を返す
+            // TODO: より適切なエラーログを検討
             return []
         }
 
@@ -28,8 +33,7 @@ class ResolutionManager {
         var activeDisplays = [CGDirectDisplayID](repeating: 0, count: Int(displayCount))
         result = CGGetOnlineDisplayList(displayCount, &activeDisplays, &displayCount)
         if result != .success {
-            //print("❌ Failed to get display list")
-            // エラー発生時は空配列を返す
+            // TODO: より適切なエラーログを検討
             return []
         }
 
@@ -49,9 +53,9 @@ class ResolutionManager {
             let allModes = (allModesCF as NSArray) as! [CGDisplayMode]
             var validModes: [CGDisplayMode] = []
 
-            // 1) HiDPIかつ幅>=1000のモードを追加
+            // 1) HiDPIかつ幅が最小幅以上のモードを追加
             for mode in allModes {
-                if mode.isHiDPI && mode.width >= 1000 && canSetResolution(displayID: id, mode: mode) {
+                if mode.isHiDPI && mode.width >= Constants.minDisplayableWidth && canSetResolution(displayID: id, mode: mode) {
                     validModes.append(mode)
                 }
             }
@@ -83,33 +87,27 @@ class ResolutionManager {
         // 解像度変更の設定を開始
         let beginResult = CGBeginDisplayConfiguration(&configRef)
         if beginResult != .success {
-            //print("Failed to begin display config: \(beginResult.rawValue)")
             // 開始に失敗したら終了
             return
         }
         // 実際に解像度を設定
         let result = CGConfigureDisplayWithDisplayMode(configRef, displayID, mode, nil)
         if result != .success {
-            //print("Failed to set resolution \(mode.width)x\(mode.height): \(result.rawValue)")
             // エラー時はキャンセル
             CGCancelDisplayConfiguration(configRef)
             return
         }
         // 設定を永続的に適用
         CGCompleteDisplayConfiguration(configRef, .permanently)
-        //print("Resolution set to \(mode.width)x\(mode.height) for display \(displayID)")
     }
     
     // 指定の解像度モードが使用可能かどうかを簡易判定（小さすぎるモードを除外）
     func canSetResolution(displayID: CGDirectDisplayID, mode: CGDisplayMode) -> Bool {
         // 実際に CGDisplaySetDisplayMode で試してみるのは重いので、
         // 一般的には以下の条件などで判定
-        // ここでは単純にピクセル数が小さすぎるものを除外例
+        // ここでは単純にピクセル数が小さすぎるものを除外
 
-        let minWidth = 1000
-        let minHeight = 600
-
-        if mode.width < minWidth || mode.height < minHeight {
+        if mode.width < Constants.minDisplayableWidth || mode.height < Constants.minDisplayableHeight {
             return false
         }
         return true
@@ -132,12 +130,6 @@ extension CGDisplayMode {
     var isHiDPI: Bool {
         return (self.pixelWidth / self.width) >= 2
     }
-
-// テレビ出力（HDRや16bit floatなど）かの判定
-//    var isTelevisionOutput: Bool {
-//        return (self.pixelEncoding as String?) == "kIO16BitFloatPixels"
-//    }
-    
 }
 
 

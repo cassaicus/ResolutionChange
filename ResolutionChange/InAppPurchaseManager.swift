@@ -6,7 +6,7 @@ class InAppPurchaseManager: ObservableObject {
     @Published var products: [Product] = []
     
     private enum Constants {
-        static let fullVersionProductID = "unlock_full_version"
+        static let fullVersionProductID = "com.cassaicus.resolution.unlock"
     }
 
     private let productIDs = [Constants.fullVersionProductID]
